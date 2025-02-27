@@ -4,3 +4,6 @@ The purpose of this analysis is to investigate police stops in Maryland using th
 
 ### Project 2:
 Project 2 builds on top of Project 1. I built an interactive webpage by using Shiny to analyze the Stanford Open Policing Project (MD State Patrol Dataset). The webpage provides additional visualizations, enhanced with interactivity to explore relationships and trends.
+
+## Exploratory Analysis of Cleveland Heart Disease 
+This project explores the Cleveland Heart Disease dataset to analyze the relationship between clinical features and the presence of heart disease. Using data visualization and statistical analysis, the study examines age distribution, maximum heart rate, chest pain types, and ST depression levels in relation to heart disease severity. Key findings reveal that heart disease risk increases with age, individuals with the condition tend to achieve lower maximum heart rates, asymptomatic chest pain is common among affected individuals, and higher ST depression levels correlate with greater disease severity. These insights highlight the importance of early detection, regular screenings, and personalized healthcare strategies to improve cardiovascular health outcomes.
