@@ -1,0 +1,345 @@
+---
+title: "Project 1: Exploration Plan for the Stanford Open Policing Project (MD State Patrol Data)"
+author: "Violet Zheng - DATA 350"
+date: "11/10/2024"
+output:
+  html_document:
+    number_sections: true
+  pdf_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Exploration Plan for the Stanford Open Policing Project (MD State Patrol Data)
+
+## Objective:
+
+The purpose of this analysis is to investigate police stops in Maryland
+using the provided dataset. This data is particularly valuable as it
+illuminates trends in traffic stops, one of the most common interactions
+between law enforcement and the public. On an average day, over 50,000
+drivers are stopped by police across the United States, amounting to
+nearly 20 million motorists annually. By examining this dataset, which
+includes detailed information on stops from December 2006 to March 2014
+(a total of 3,587,052 recorded stops), we aim to uncover potential
+disparities in policing practices, such as racial profiling or bias in
+search and arrest outcomes.
+
+## Significance:
+
+Analyzing the data across different demographics, times, and locations
+allows for the identification of patterns that may indicate inequities
+in law enforcement practices. The insights gained can inform policy
+changes aimed at enhancing transparency, accountability, and fairness in
+policing, thereby fostering better community relations and trust.
+
+## Guiding Questions:
+
+1.  How do traffic stops differ by race, gender, and age group? Are
+    there noticeable disparities in stop reasons or search outcomes
+    based on demographic factors?
+
+2.  What are the patterns in traffic stops by time of day and day of the
+    week? Are there certain times when stops are more frequent? Are
+    there specific demographics that are stopped more frequently during
+    certain periods?
+
+3.  How do stop outcomes (e.g., citations, arrests, warnings) vary by
+    race, gender, and age? Are there disparities in the likelihood of
+    receiving a citation or being arrested based on demographic
+    characteristics?
+
+4. Which department conducted the most traffic stops?
+
+By exploring these questions, the analysis aims to provide actionable
+insights into law enforcement practices and their impact on different
+communities.
+
+### First, I will load and preprocess the data
+
+```{r, echo=TRUE}
+#install.packages("tidyverse")
+#install.packages("ggplot2")
+#install.packages("sf")
+#install.packages("maps")
+#install.packages("dplyr")
+#install.packages("lubridate")
+#install.packages("viridis")
+
+library(tidyverse)
+library(lubridate)
+
+# load data
+library(readr)
+md_data <- read_csv("D350 WorkSpace/md_statewide_2020_04_01.csv")
+View(md_data)
+
+# filter out missing values, including missing demographic information
+md_data <- md_data %>%
+  filter(!is.na(subject_race), !is.na(subject_sex), !is.na(outcome), !is.na(reason_for_stop), !is.na(time), !is.na(subject_age))
+
+# convert date column to date type
+md_data$stop_date <- as.Date(md_data$date, format = "%Y-%m-%d")
+md_data$stop_time <- hms::as_hms(md_data$time)
+```
+
+### Question 1: How do traffic stops differ by race, gender, and age group? Are there noticeable disparities in search outcomes based on demographic factors?
+
+To analyze how traffic stops differ by race, gender, and age group, and
+to identify any disparities in stop reasons or search outcomes, I
+created a stacked bar chart. This will show the count of traffic stops
+segmented by race, further broken down by gender, while also
+incorporating age groups to reveal possible disparities.
+
+```{r, echo=TRUE}
+# create age groups
+md_data <- md_data %>%
+  mutate(age_group = cut(subject_age, breaks = c(0, 18, 30, 45, 60, 110), 
+                         labels = c("0-18", "19-30", "31-45", "46-60", "60+")))
+
+# convert search conducted to a factor for plotting
+md_data$search_conducted <- factor(md_data$search_person, levels = c("TRUE", "FALSE"))
+
+# generate the plot
+ggplot(md_data, aes(x = subject_race, fill = interaction(subject_sex, search_person, sep = ": "))) +
+  geom_bar(position = "stack") +
+  facet_wrap(~age_group) +
+  labs(
+    title = "Traffic Stops in Maryland by Race, Gender, and Age Group",
+    x = "Driver Race",
+    y = "Number of Stops",
+    fill = "Gender and Search Outcome",
+    horiz = TRUE
+  ) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set3") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  ) +
+  coord_flip()
+
+ggsave("Traffic Stops in Maryland by Race, Gender, and Age Group.jpeg", width = 10, height = 7)
+
+```
+
+### Question 1 Analysis:
+
+Based on the figure above, I can observe several patterns related to
+traffic stops in Maryland by race, gender, and age group, as well as
+disparities in search outcomes.
+
+*Race-Based Disparities:* The majority of traffic stops across all age
+groups involve White and Black drivers, with a particularly high number
+of stops for White drivers aged 19-30 and 31-45. Stops involving
+Asian/Pacific Islanders and Hispanic individuals are notably fewer
+across all age groups.
+
+*Gender Differences:* Across most racial categories, male drivers are
+stopped more frequently than female drivers, particularly in the 19-30
+and 31-45 age groups. The legend shows the distinction between searches
+conducted ("TRUE") and not conducted ("FALSE") by gender. In general,
+male drivers are more frequently subjected to searches than female
+drivers.
+
+*Age Group Patterns:* The 19-30 and 31-45 age groups see the highest
+volume of traffic stops across all racial categories, indicating a
+possible focus on younger to middle-aged drivers. The 0-18 and 60+ age
+groups have substantially fewer stops, suggesting less police attention
+on very young and older drivers. A reason for this could be that young
+drivers under 18 have their provisional license, and they must maintain
+a clean driving record for 18 months before they are eligible for a full
+MD driver's license.
+
+*Search Outcomes:* The presence of red (indicating searches of male
+drivers) and purple (indicating searches of female drivers) bars
+suggests that searches are more likely to be conducted on males, but
+females are not exempt.
+
+### Question 2: What are the patterns in traffic stops by time of day and day of the week? Are there certain times when stops are more frequent? Are there specific demographics that are stopped more frequently during certain periods?
+
+To analyze the patterns of traffic stops by time of day and day of the
+week, I created a heatmap. A heatmap will help visualize the frequency
+of traffic stops at different times across the days of the week, and we
+can further break it down by demographic groups (e.g., race or gender)
+to identify specific patterns.
+
+```{r, echo=TRUE}
+# convert stop_time to hour and stop_date to day of the week
+md_data$stop_time <- hms::as_hms(md_data$time)
+md_data$stop_hour <- hour(md_data$time)
+md_data$day_of_week <- wday(md_data$date, label = TRUE, abbr = FALSE)
+
+# filter out rows with missing time data
+md_data <- md_data %>% filter(!is.na(stop_hour), !is.na(day_of_week))
+
+# generate a heatmap to visualize traffic stop patterns
+ggplot(md_data, aes(x = stop_hour, y = day_of_week, fill = ..count..)) +
+  geom_bin2d(binwidth = c(1, 1)) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(
+    title = "Traffic Stop Patterns in Maryland by Time of Day and Day of the Week",
+    x = "Hour of Day",
+    y = "Day of the Week",
+    fill = "Number of Stops"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right",
+  )
+
+ggsave("Traffic Stop Patterns in Maryland by Time of Day and Day of the Week.jpeg", width = 10, height = 7)
+
+# generate a heatmap to visualize traffic stop patterns - based on race
+ggplot(md_data, aes(x = stop_hour, y = day_of_week, fill = ..count..)) +
+  geom_bin2d(binwidth = c(1, 1)) +
+  facet_wrap(~subject_race) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(
+    title = "Traffic Stop Patterns in Maryland by Time of Day, Day of the Week and Race",
+    x = "Hour of Day",
+    y = "Day of the Week",
+    fill = "Number of Stops"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right",
+    strip.text = element_text(size = 10, face = "bold")
+  )
+
+ggsave("Traffic Stop Patterns in Maryland by Time of Day, Day of the Week and Race.jpeg", width = 10, height = 7)
+
+```
+
+### Question 2 Analysis:
+
+Based on the heatmaps above, I can identify several patterns in traffic
+stops in Maryland by time of day and day of the week.
+
+*Peak Days for Traffic Stops:* The heatmap shows that Friday and Saturday have the highest concentration of traffic stops, especially late at night (midnight to early morning). This is indicated by the darker blue color on those days compared to others. Sunday also sees a relatively high number of stops during the early morning hours, but the intensity decreases throughout the day.
+
+*Time of Day Patterns:* The early hours of the day (midnight to around 4 AM) show a higher frequency of stops across all days, with particularly high numbers during weekends.As the day progresses, traffic stops tend to become less frequent, with a noticeable decrease in the mid-afternoon (around 3-5 PM). This trend might reflect reduced police activity during those hours or fewer traffic violations being committed.There is a slight increase in stops again in the evening (around 6-9 PM), but it does not reach the intensity seen during the late-night hours.
+
+*Day of the Week Trends:* Weekdays (Monday to Thursday) show relatively lower traffic stop frequencies, especially during early morning and late evening hours, compared to the weekends. The pattern suggests that police may increase patrols during the late-night hours of weekends, potentially targeting areas with higher nighttime traffic or looking for drivers under the influence.
+
+*Demographic-Specific Insights:* There is a higher concentration of stops for Black drivers during the late-night hours (12 AM - 2 AM) on Saturdays, indicating a potential focus on this demographic during specific times. White drivers appear to have a relatively even distribution of stops throughout the day, with a slight increase in the late-night hours, similar to Black drivers. For Hispanic and Asian/Pacific Islander drivers, the stops are more evenly distributed and less concentrated compared to the Black and White groups.
+
+
+### Quesetion 3.  How do stop outcomes (e.g., citations, arrests, warnings) vary byrace, gender, and age? Are there disparities in the likelihood of receiving a citation or being arrested based on demographic characteristics?
+
+To understand how traffic stop outcomes (citations, arrests, warnings) differ across various demographic groups in Maryland, I created a stacked bar chart and heatmap.
+
+```{r, echo=TRUE}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Convert stop outcome to a factor for better plotting
+md_data$outcome <- factor(md_data$outcome)
+
+# Generate stacked bar chart
+ggplot(md_data, aes(x = subject_race, fill = outcome)) +
+  geom_bar(position = "fill") +  # use 'fill' for proportions
+  labs(
+    title = "Proportion of Stop Outcomes by Race",
+    x = "Driver Race",
+    y = "Proportion",
+    fill = "Stop Outcome"
+  ) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("Proportion of Stop Outcomes by Race.jpeg", width = 10, height = 7)
+
+# Create age groups if not already created
+md_data <- md_data %>%
+  mutate(age_group = cut(subject_age, breaks = c(0, 18, 30, 45, 60, 110), 
+                         labels = c("0-18", "19-30", "31-45", "46-60", "60+")))
+
+# Aggregate data for heatmap
+outcome_summary <- md_data %>%
+  group_by(subject_race, age_group, outcome) %>%
+  summarise(total = n(), .groups = 'drop')
+
+# Generate heatmap
+ggplot(outcome_summary, aes(x = age_group, y = subject_race, fill = total)) +
+  geom_tile(color = "white") +
+  facet_wrap(~ outcome, ncol = 1) +
+  scale_fill_viridis_c(option = "C") +
+  labs(
+    title = "Stop Outcomes by Race and Age Group",
+    x = "Age Group",
+    y = "Driver Race",
+    fill = "Number of Stops"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("Stop Outcomes by Race and Age Group.jpeg", width = 10, height = 7)
+
+```
+### Quesetion 3 Analysis:
+Based on the stacked bar chart and heatmap above, I can identify several patterns of how stop outcomes—specifically citations, arrests, and warnings—vary by race, gender, and age. 
+
+*Variation in Stop Outcomes by Race:* The first figure, a stacked bar chart of stop outcomes by race, illustrates that warnings are the most frequent outcome across all racial groups. However, the proportion of warnings varies slightly by race, with Black and Hispanic drivers receiving a somewhat lower proportion of warnings compared to White and Asian/Pacific Islander drivers. Citations are the second most common outcome, with Black and Hispanic drivers receiving a higher proportion of citations relative to other racial groups. Arrests make up the smallest proportion of stop outcomes for all races but are slightly more frequent among Hispanic drivers compared to others.
+
+These differences suggest potential disparities in the way different racial groups are treated in traffic stops. The higher proportion of citations and arrests for Black and Hispanic drivers indicates they may face stricter enforcement during stops than White or Asian/Pacific Islander drivers.
+
+*Variation in Stop Outcomes by Age and Race:* The second figure, a heatmap of stop outcomes by race and age group, shows that young drivers (aged 19-30) tend to have the highest number of stops across all racial groups. Among these, Black and White drivers in this age range are more frequently cited than other racial groups.
+Warnings are most commonly issued to young White drivers (age 19-30). This may reflect a more lenient approach towards them. Warnings are also commonly issued to drivers in the 31-45 and 46-60 age group. This may reflect a more lenient approach towards older drivers.Arrests are relatively low across all age groups.
+
+### Quesetion 4. Which department conducted the most traffic stops?
+
+To analyze which department conducted the most traffic stops, I created a horizontal bar plot to visualize the number of traffic stops conducted by various police departments in Maryland.
+
+```{r, echo=TRUE}
+# Standardize department names
+md_data <- md_data %>%
+  mutate(department_name = case_when(
+    department_name == "MSP" ~ "Maryland State Police",
+    department_name == "Maryland State Police" ~ "Maryland State Police",
+    TRUE ~ department_name  # Leave other names unchanged
+  ))
+
+# Standardize department names
+md_data <- md_data %>%
+  mutate(department_name = case_when(
+    department_name == "MONTGOMERY" ~ "Montgomery County Police Department",
+    department_name == "Montgomery County Police Department" ~ "Montgomery County Police Department",
+    TRUE ~ department_name  # Leave other names unchanged
+  ))
+
+# Count the number of stops by department and filter departments with more than 25,000 stops
+department_counts <- md_data %>%
+  group_by(department_name) %>%
+  summarise(stop_count = n()) %>%
+  filter(stop_count > 10000) %>%  # Keep only departments with more than 25,000 stops
+  arrange(desc(stop_count))
+
+# Plot the data
+ggplot(department_counts, aes(x = reorder(department_name, stop_count), y = stop_count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Police Departments with More than 10,000 Traffic Stops",
+    x = "Department Name",
+    y = "Number of Traffic Stops",
+    caption = "Data Source: Stanford Open Policing Project"
+  ) +
+  theme_minimal()
+
+ggsave("Police Departments with More than 10,000 Traffic Stops.jpeg", width = 10, height = 7)
+```
+### Quesetion 4 Analysis: 
+Based on the bar plot above, Maryland State Police has the highest number of traffic stops, significantly more than any other department. The Baltimore County Police Department and Montgomery County Police Department follow, with considerably fewer stops than Maryland State Police but still much higher than the rest. The departments at the bottom of the list, like Frederick Police Department and Ocean City Police Department, have the lowest number of traffic stops among those shown but still exceed 10,000 stops.
+
+Maryland State Police's dominance in traffic stops is likely due to their statewide jurisdiction, unlike county-specific police departments that are limited to smaller areas.
+
+## Conclusion: 
+This exploratory data analysis of the Maryland State Patrol dataset from the Stanford Open Policing Project has revealed several patterns in traffic stops related to race, gender, age, time, and department jurisdiction. Notably, the data suggests disparities in stop outcomes, with Black and White drivers experiencing a higher proportion of citations and warnings compared to others. Additionally, stops are more frequent during late-night hours on weekends, especially for younger male drivers, indicating a potential focus on this demographic during certain periods.
+
+The analysis also highlights the dominant role of the Maryland State Police in traffic enforcement due to their statewide jurisdiction, leading to a significantly higher number of stops than county-specific departments.
