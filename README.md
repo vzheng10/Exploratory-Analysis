@@ -1,0 +1,2 @@
+Conducted an in-depth analysis of 3.5 million traffic stops in Maryland from the Stanford Open Policing Project, focusing on potential disparities in policing practices. Investigated racial, gender, and age-based disparities in stop reasons, search outcomes, and arrest rates.
+Created data visualizations using R (tidyverse, ggplot2, dplyr, lubridate) to analyze stop patterns by time of day and day of week, identifying peak enforcement periods and demographic trends.
