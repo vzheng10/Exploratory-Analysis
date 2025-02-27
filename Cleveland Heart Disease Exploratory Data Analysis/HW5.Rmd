@@ -1,0 +1,117 @@
+---
+title: "Homework 5"
+author: "Violet Zheng - DATA 350"
+date: "10/24/2024"
+output:
+  html_document:
+    number_sections: true
+  pdf_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Cleveland Heart Disease Exploratory Data Analysis
+
+According to the CDC, heart disease is the leading cause of death in the United States. The most common type of heart disease in the United States is conronary artery disease (CAD), and it killed 371,506 people in 2022. CAD affects blood flow to the heart, and a decreased blood flow can cause a heart attack. Many of those with heart disease may not experience any signs or symptoms until a heart attack. There are several risk factors for heart disease, such as high blood pressure, high blood cholesterol, and smoking. 
+
+The Cleveland Heart Disease Data consists of 14 variables measured on 303 individuals who have heart disease. 
+
+The goal of this analysis is to explore the dataset to understand the relationship between various clinical features and the presence of heart disease. I am aiming to investigate patterns and correlations between patient attributes and the diagnosis of heart disease. Furthermore, I am also investigating which type of chest pain is more commonly associated with heart disease and potentially uncover other important relationships between features in the data. 
+
+
+```{r, echo=TRUE}
+library(MixAll)
+library(ggplot2)
+library(dplyr)
+
+#Load data frames
+data(HeartDisease.cat)
+data(HeartDisease.cont)
+data(HeartDisease.target)
+
+#Merge data
+heart_data <- cbind(HeartDisease.cat,HeartDisease.cont,HeartDisease.target)
+
+#check dataset merged
+colnames(heart_data)
+```
+
+Question 1. What is the age distribution of individuals with and without heart disease?
+```{r, echo=TRUE}
+# Filter data to examine the distribution of age for those with heart disease
+ggplot(heart_data, aes(x = age, fill = as.factor(num))) +
+  geom_histogram(position = "dodge", bins = 20) +
+  labs(
+    title = "Distribution of Age vs. Diagnosis of Heart Disease",
+       x = "Age", 
+    y = "Count", 
+    fill = "Diagnosis of Heart Disease",
+    caption = "Diagnosis of Heart Disease. \n0: No Significant Disease, 1: Mild Disease, 2: Moderate Disease, 3: Severe Disease, 4: Very Severe Disease") +
+  theme_minimal() + 
+  #center caption
+  theme(plot.caption = element_text(hjust = 0))
+```
+
+To explore the age distribution of those with and without heart disease, I utilized a histogram. The results indicate that, although heart disease can occur at any age, it becomes more common in individuals in their late 50s. This trend may suggest that the risk of heart disease increases with age, potentially due to age-related changes in the heart and blood vessels, or the accumulation of other long-term risk factors over time.
+
+
+Question 2. How does maximum heart rate achieved correlate with the diagnosis of heart disease?
+```{r, echo=TRUE}
+ggplot(heart_data, aes(x = age, y = thalach, color = as.factor(num))) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(aes(group = as.factor(num)), method = "lm", se = FALSE) +
+  labs(
+    title = "Maximum Heart Rate Achieved vs. Age by Diagnosis of Heart Disease",
+       x = "Age", 
+    y = "Maximum Heart Rate Achieved", 
+    color = "Diagnosis of Heart Disease",
+    caption = "Diagnosis of Heart Disease. \n0: No Significant Disease, 1: Mild Disease, 2: Moderate Disease, 3: Severe Disease, 4: Very Severe Disease") +
+  theme_minimal() + 
+  #center caption
+  theme(plot.caption = element_text(hjust = 0))
+```
+
+An exercise stress test helps assess how well the heart functions under peak activity, often to evaluate blood flow and pumping efficiency. To explore the relationship between maximum heart rate and heart disease status, I utilized a scatter plot. The plot shows that individuals with heart disease tend to reach lower maximum heart rates compared to those without heart disease. This highlights the importance for high-risk individuals to monitor heart function regularly through stress tests.
+
+
+Question 3. Which type of chest pain is more commonly associated with heart disease?
+```{r, echo=TRUE}
+# Filter data to examine chest pain type vs heart disease
+ggplot(heart_data, aes(x = as.factor(cp), fill = as.factor(num))) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Distribution of Chest Pain Type by Diagnosis of Heart Disease",
+       x = "Chest Pain Type", 
+    y = "Count", 
+    fill = "Diagnosis of Heart Disease",
+    caption = "Chest Pain Type. \n1: Typical Angina, 2: Atypical Angina, 3:Non-Anginal Pain, 4: Asymptomatic\nDiagnosis of Heart Disease. \n0: No Significant Disease, 1: Mild Disease, 2: Moderate Disease, 3: Severe Disease, 4: Very Severe Disease") +
+  theme_minimal() + 
+  #center caption
+  theme(plot.caption = element_text(hjust = 0))
+```
+
+To explore which type of chest pain is more commonly associated with heart disease, I utilized a bar chart. The chart reveals that among individuals diagnosed with heart disease, the majority experienced asymptomatic chest pain. This finding underscores the importance of regular heart-health screenings, as a lack of chest pain does not necessarily indicate a low risk for heart disease.
+
+
+Quesetion 4. What is the relationship between ST depression levels and the diagnosis of heart disease?
+```{r, echo=TRUE}
+ggplot(heart_data, aes(x = as.factor(num), y = oldpeak)) +
+  geom_boxplot() +
+  labs(
+    title = "ST Depression Induced by Exercise Relative to Rest vs. Diagnosis of Heart Disease",
+       x = "Diagnosis of Heart Disease", 
+    y = "ST Depression Induced by Exercise Relative to Rest", 
+    color = "Diagnosis of Heart Disease",
+    caption = "Diagnosis of Heart Disease. \n0: No Significant Disease, 1: Mild Disease, 2: Moderate Disease, 3: Severe Disease, 4: Very Severe Disease") +
+  theme_minimal() + 
+  #center caption
+  theme(plot.caption = element_text(hjust = 0))
+
+```
+
+ST depression refers to the positioning of the ST segment in an ECG, representing the phase in the cardiac cycle when the heart muscle contracts to pump blood out of the ventricles. Higher ST depression values can signal underlying heart-related conditions. To explore the relationship between ST depression levels and heart disease diagnosis, I used a boxplot. The results show that the median ST depression level is lower for individuals without heart disease and rises as the severity of heart disease increases. This suggests that ST depression observed during stress tests may serve as an indicator for assessing heart disease, highlighting potential underlying health issues.
+
+Collectively, these findings underscore the multifaceted nature of heart disease risk factors and the importance of an integrative approach to prevention and management. Healthcare providers should be cognizant of the interplay between age, physiological responses to stress, and symptom presentation when assessing cardiovascular health. As heart disease continues to be a leading cause of morbidity and mortality, a proactive, informed approach that incorporates these insights can help mitigate risks and improve patient outcomes.
+
+In summary, the Cleveland Heart Disease dataset analysis provides valuable contributions to our understanding of heart disease. By highlighting key relationships between clinical features and heart disease, it emphasizes the importance of awareness, early detection, and personalized healthcare strategies in combating this pervasive condition. Future research should continue to explore these relationships, aiming to refine diagnostic tools and enhance prevention efforts in the quest to reduce the burden of heart disease on individuals and healthcare systems alike.
